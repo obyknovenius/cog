@@ -605,7 +605,7 @@ registry_global (void               *data,
         wl_data.compositor = wl_registry_bind (registry,
                                                name,
                                                &wl_compositor_interface,
-                                               version);
+                                               5);
     } else if (strcmp (interface, wl_subcompositor_interface.name) == 0) {
             wl_data.subcompositor = wl_registry_bind (registry,
                                                       name,
@@ -625,7 +625,7 @@ registry_global (void               *data,
         wl_data.xdg_shell = wl_registry_bind (registry,
                                               name,
                                               &xdg_wm_base_interface,
-                                              version);
+                                              1);
         g_assert (wl_data.xdg_shell);
         xdg_wm_base_add_listener (wl_data.xdg_shell, &xdg_shell_listener, NULL);
     } else if (strcmp (interface,
@@ -662,7 +662,7 @@ registry_global (void               *data,
         struct wl_output* output = wl_registry_bind (registry,
                                                      name,
                                                      &wl_output_interface,
-                                                     version);
+                                                     2);
         wl_output_add_listener (output, &output_listener, NULL);
         bool inserted = false;
         for (int i = 0; i < G_N_ELEMENTS (wl_data.metrics); i++)
