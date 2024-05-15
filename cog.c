@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 #include "core/cog.h"
 
 #if !COG_USE_WEBKITGTK
@@ -353,6 +355,58 @@ on_shutdown (CogLauncher *launcher G_GNUC_UNUSED, void *user_data G_GNUC_UNUSED)
 }
 #endif // !COG_USE_WEBKITGTK
 
+static gboolean
+inject_script (WebKitUserContentManager* content_manager, gchar* path)
+{
+    int fd = open (path, O_RDONLY);
+    if (fd < 0)
+        return FALSE;
+
+    int size = lseek (fd, 0, SEEK_END);
+    char *script = mmap (NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (script == MAP_FAILED) {
+        close (fd);
+        return FALSE;
+    }
+
+    g_autoptr(WebKitUserScript) user_script = webkit_user_script_new (script,
+                                                                      WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
+                                                                      WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_END,
+                                                                      NULL, NULL);
+    webkit_user_content_manager_add_script(content_manager, user_script);
+
+    munmap (script, size);
+    close (fd);
+
+    return TRUE;
+}
+
+static gboolean
+inject_style_sheet (WebKitUserContentManager* content_manager, gchar* path)
+{
+    int fd = open (path, O_RDONLY);
+    if (fd < 0)
+        return FALSE;
+
+    int size = lseek (fd, 0, SEEK_END);
+    char *style_sheet = mmap (NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (style_sheet == MAP_FAILED) {
+        close (fd);
+        return FALSE;
+    }
+
+    g_autoptr(WebKitUserStyleSheet) user_style_sheet = webkit_user_style_sheet_new (style_sheet,
+                                                                                    WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
+                                                                                    WEBKIT_USER_STYLE_LEVEL_USER,
+                                                                                    NULL, NULL);
+    webkit_user_content_manager_add_style_sheet(content_manager, user_style_sheet);
+
+    munmap (style_sheet, size);
+    close (fd);
+
+    return TRUE;
+}
+
 static void*
 on_web_view_create (WebKitWebView          *web_view,
                     WebKitNavigationAction *action)
@@ -404,7 +458,33 @@ on_create_view (CogShell *shell, void *user_data G_GNUC_UNUSED)
 #endif // HAVE_DEVICE_SCALING
 #endif // !COG_USE_WEBKITGTK
 
+    g_autoptr(WebKitUserContentManager) content_manager = webkit_user_content_manager_new();
+
+    const gchar* const* data_dirs = g_get_system_data_dirs ();
+
+    for (int i = 0; data_dirs[i] != NULL; i++) {
+        g_autofree gchar* path = g_build_filename (data_dirs[i], "cog", "kioskboard-2.3.0.min.js", NULL);
+        if (inject_script (content_manager, path))
+            break;
+    }
+
+    for (int i = 0; data_dirs[i] != NULL; i++) {
+        g_autofree gchar* path = g_build_filename (data_dirs[i], "cog", "kioskboard-2.3.0.min.css", NULL);
+        if (inject_style_sheet (content_manager, path))
+            break;
+    }
+
+    for (int i = 0; data_dirs[i] != NULL; i++) {
+        g_autofree gchar* path = g_build_filename (data_dirs[i], "cog", "enable-kioskboard.js", NULL);
+        if (inject_script (content_manager, path))
+            break;
+    }
+
+    WebKitSettings* settings = cog_shell_get_web_settings (shell);
+    webkit_settings_set_enable_write_console_messages_to_stdout(settings, TRUE);
+
     g_autoptr(WebKitWebView) web_view = g_object_new (WEBKIT_TYPE_WEB_VIEW,
+                                                      "user-content-manager", content_manager,
                                                       "settings", cog_shell_get_web_settings (shell),
                                                       "web-context", web_context,
                                                       "zoom-level", s_options.scale_factor,

@@ -200,6 +200,10 @@ if (COG_BUILD_PROGRAMS)
         DESTINATION ${CMAKE_INSTALL_BINDIR}
         COMPONENT "runtime"
     )
+    install(FILES data/kioskboard-2.3.0.min.js data/kioskboard-2.3.0.min.css data/enable-kioskboard.js
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/cog
+            COMPONENT "runtime"
+        )
     if (INSTALL_MAN_PAGES)
         install(FILES data/cog.1 data/cogctl.1
             DESTINATION ${CMAKE_INSTALL_MANDIR}/man1
