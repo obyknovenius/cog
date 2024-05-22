@@ -1,7 +1,6 @@
 // Initialize KioskBoard (default/all options)
 
 KioskBoard.init({
-
     /*!
     * Required
     * An Array of Objects has to be defined for the custom keys. Hint: Each object creates a row element (HTML) on the keyboard.
@@ -119,7 +118,23 @@ KioskBoard.init({
   
     // The Enter key can close and remove the keyboard. Prevented when "false"
     keysEnterCanClose: true,
-  });
+});
   
-  KioskBoard.run("input,textarea");
-  
+KioskBoard.run("input,textarea");
+
+let observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        if (mutation.type === "childList") {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeName === "INPUT" || node.nodeName === "TEXTAREA") {
+                    KioskBoard.run(node);
+                }
+            });
+        }
+    });
+});
+ 
+observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+});
